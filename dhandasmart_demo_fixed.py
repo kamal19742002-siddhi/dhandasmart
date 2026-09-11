@@ -1,5 +1,13 @@
-import tkinter as tk
-from tkinter import messagebox, simpledialog, filedialog, ttk
+try:
+    import tkinter as tk
+    from tkinter import messagebox, simpledialog, filedialog, ttk
+except (ImportError, ModuleNotFoundError):
+    tk = None
+    messagebox = None
+    simpledialog = None
+    filedialog = None
+    ttk = None
+
 import json
 import os
 import csv
