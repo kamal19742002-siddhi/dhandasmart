@@ -1,13 +1,5 @@
-try:
-    import tkinter as tk
-    from tkinter import messagebox, simpledialog, filedialog, ttk
-except (ImportError, ModuleNotFoundError):
-    tk = None
-    messagebox = None
-    simpledialog = None
-    filedialog = None
-    ttk = None
-
+import tkinter as tk
+from tkinter import messagebox, simpledialog, filedialog, ttk
 import json
 import os
 import csv
@@ -205,7 +197,6 @@ def converted_value(leads=None):
     return total
 
 
-
 # =========================
 # DHANDASMART V5 - DEMO + PC/MOBILE WEB APP
 # =========================
@@ -292,9 +283,7 @@ def product_demo():
 def _web_html():
     current = load_data()
     leads = current.get("leads", [])
-    counts = lead_status_counts(leads)
     pipeline = lead_pipeline_value(leads)
-    converted = converted_value(leads)
     active = sum(1 for x in leads if normalize_status(x.get("status")) not in ("Converted", "Lost"))
     conversion = (sum(1 for x in leads if normalize_status(x.get("status")) == "Converted") / len(leads) * 100) if leads else 0
 
@@ -428,12 +417,11 @@ def mobile_web_app():
 
 
 # =========================
-# ONLINE DEMO WEB MODE
+# ONLINE DEMO WEB MODE (7 DAYS VALIDITY)
 # =========================
 
 def run_online_demo():
-    """Run a password-protected Flask demo site without starting the Tkinter desktop UI.
-    Intended for a demo-only deployment with isolated demo data."""
+    """Run a password-protected Flask demo site with a 7-day trial validity."""
     if Flask is None:
         raise RuntimeError("Flask is not installed. Run: pip install flask")
 
@@ -443,50 +431,74 @@ def run_online_demo():
     demo_password = os.environ.get("DHANDASMART_DEMO_PASSWORD", "demo123")
     demo_data_file = os.environ.get("DHANDASMART_DATA_FILE", "demo_data.json")
 
+    TRIAL_DAYS = 7
+
     def demo_load():
         nonlocal demo_data_file
+        d = {}
         if os.path.exists(demo_data_file):
             try:
                 with open(demo_data_file, "r", encoding="utf-8") as f:
                     d = json.load(f)
-                d.setdefault("business_name", "DhandaSmart Demo")
-                d.setdefault("business_type", "Demo Business")
-                d.setdefault("leads", [])
-                d.setdefault("audit", {})
-                d.setdefault("content_history", [])
-                d.setdefault("campaigns", [])
-                for lead in d["leads"]:
-                    lead.setdefault("source", "Demo")
-                    lead.setdefault("loan_amount", 0)
-                    lead.setdefault("priority", "Medium")
-                    lead.setdefault("notes", "")
-                    lead.setdefault("followup_date", "")
-                    lead.setdefault("date", datetime.now().strftime("%d-%m-%Y"))
-                    lead.setdefault("history", [])
-                    lead.setdefault("last_contacted", "")
-                return d
             except Exception:
-                pass
-        return {
-            "business_name": "DhandaSmart Demo",
-            "business_type": "Business Demo",
-            "leads": [
-                {"name":"Rahul Sharma","phone":"98XXXXXX01","service":"Home Loan","status":"New","priority":"High","source":"Website","loan_amount":2500000,"followup_date":"","notes":"Demo lead","date":datetime.now().strftime("%d-%m-%Y"),"history":[],"last_contacted":""},
-                {"name":"Amit Verma","phone":"98XXXXXX02","service":"Business Loan","status":"Follow-up","priority":"Medium","source":"Referral","loan_amount":1200000,"followup_date":"","notes":"Demo follow-up","date":datetime.now().strftime("%d-%m-%Y"),"history":[],"last_contacted":""},
-                {"name":"Neha Gupta","phone":"98XXXXXX03","service":"Insurance","status":"Converted","priority":"Low","source":"Facebook","loan_amount":750000,"followup_date":"","notes":"Demo converted lead","date":datetime.now().strftime("%d-%m-%Y"),"history":[],"last_contacted":""}
-            ],
-            "audit": {}, "content_history": [], "campaigns": []
-        }
+                d = {}
+
+        if "trial_start_date" not in d:
+            d["trial_start_date"] = datetime.now().strftime("%Y-%m-%d")
+
+        d.setdefault("business_name", "DhandaSmart Demo")
+        d.setdefault("business_type", "Demo Business")
+        d.setdefault("leads", [
+            {"name":"Rahul Sharma","phone":"98XXXXXX01","service":"Home Loan","status":"New","priority":"High","source":"Website","loan_amount":2500000,"followup_date":"","notes":"Demo lead","date":datetime.now().strftime("%d-%m-%Y"),"history":[],"last_contacted":""},
+            {"name":"Amit Verma","phone":"98XXXXXX02","service":"Business Loan","status":"Follow-up","priority":"Medium","source":"Referral","loan_amount":1200000,"followup_date":"","notes":"Demo follow-up","date":datetime.now().strftime("%d-%m-%Y"),"history":[],"last_contacted":""},
+            {"name":"Neha Gupta","phone":"98XXXXXX03","service":"Insurance","status":"Converted","priority":"Low","source":"Facebook","loan_amount":750000,"followup_date":"","notes":"Demo converted lead","date":datetime.now().strftime("%d-%m-%Y"),"history":[],"last_contacted":""}
+        ])
+        d.setdefault("audit", {})
+        d.setdefault("content_history", [])
+        d.setdefault("campaigns", [])
+
+        for lead in d["leads"]:
+            lead.setdefault("source", "Demo")
+            lead.setdefault("loan_amount", 0)
+            lead.setdefault("priority", "Medium")
+            lead.setdefault("notes", "")
+            lead.setdefault("followup_date", "")
+            lead.setdefault("date", datetime.now().strftime("%d-%m-%Y"))
+            lead.setdefault("history", [])
+            lead.setdefault("last_contacted", "")
+        return d
 
     def demo_save(d):
         with open(demo_data_file, "w", encoding="utf-8") as f:
             json.dump(d, f, indent=4, ensure_ascii=False)
+
+    def check_validity():
+        d = demo_load()
+        start_str = d.get("trial_start_date", datetime.now().strftime("%Y-%m-%d"))
+        try:
+            start_date = datetime.strptime(start_str, "%Y-%m-%d").date()
+        except Exception:
+            start_date = date.today()
+
+        days_passed = (date.today() - start_date).days
+        days_left = max(0, TRIAL_DAYS - days_passed)
+        is_expired = days_passed >= TRIAL_DAYS
+        return is_expired, days_left
+
+    def expired_html():
+        return """<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'>
+        <title>Demo Expired</title><style>body{font-family:Arial;background:#f8fafc;margin:0;display:grid;place-items:center;min-height:100vh;color:#1e293b}.box{background:#fff;padding:36px;border-radius:14px;width:min(90%,420px);box-shadow:0 10px 30px rgba(0,0,0,0.08);text-align:center}h1{color:#dc2626;margin:0 0 10px}p{color:#64748b;line-height:1.5}.badge{background:#fee2e2;color:#991b1b;padding:6px 12px;border-radius:20px;font-size:13px;font-weight:bold;display:inline-block;margin-bottom:15px}.btn{display:inline-block;margin-top:20px;background:#16a34a;color:white;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:bold}</style></head>
+        <body><div class='box'><span class='badge'>TRIAL PERIOD ENDED</span><h1>Demo Access Expired</h1><p>Aapka 7-day free demo period complete ho chuka hai.<br>Full software access ke liye admin se contact karein.</p><a class='btn' href='https://wa.me/91XXXXXXXXXX?text=Hi%2C%20I%20want%20to%20buy%20DhandaSmart' target='_blank'>Contact on WhatsApp</a></div></body></html>"""
 
     def login_required():
         return session.get("demo_logged_in") is True
 
     @app.route("/login", methods=["GET", "POST"])
     def login():
+        is_expired, _ = check_validity()
+        if is_expired:
+            return expired_html()
+
         error = ""
         if request.method == "POST":
             if request.form.get("username", "") == demo_user and request.form.get("password", "") == demo_password:
@@ -495,7 +507,7 @@ def run_online_demo():
             error = "Invalid demo login"
         error_html = f"<div class='err'>{error}</div>" if error else ""
         return f"""<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'>
-        <title>DhandaSmart Demo Login</title><style>body{{font-family:Arial;background:#eef2f7;margin:0;display:grid;place-items:center;min-height:100vh}}.box{{background:#fff;padding:28px;border-radius:14px;width:min(90%,360px);box-shadow:0 8px 30px #0001}}h1{{margin:0 0 6px}}p{{color:#64748b}}input,button{{width:100%;box-sizing:border-box;padding:12px;margin:7px 0;border-radius:8px;border:1px solid #cbd5e1;font-size:16px}}button{{background:#172033;color:white;font-weight:bold;cursor:pointer}}.err{{color:#b91c1c}}</style></head><body><div class='box'><h1>DHANDASMART</h1><p>Secure Demo Login</p>{error_html}<form method='post'><input name='username' placeholder='Demo username' required><input name='password' type='password' placeholder='Password' required><button>LOGIN TO DEMO</button></form></div></body></html>"""
+        <title>DhandaSmart Demo Login</title><style>body{{font-family:Arial;background:#eef2f7;margin:0;display:grid;place-items:center;min-height:100vh}}.box{{background:#fff;padding:28px;border-radius:14px;width:min(90%,360px);box-shadow:0 8px 30px #0001}}h1{{margin:0 0 6px}}p{{color:#64748b}}input,button{{width:100%;box-sizing:border-box;padding:12px;margin:7px 0;border-radius:8px;border:1px solid #cbd5e1;font-size:16px}}button{{background:#172033;color:white;font-weight:bold;cursor:pointer}}.err{{color:#b91c1c}}</style></head><body><div class='box'><h1>DHANDASMART</h1><p>Secure Demo Login (7 Days Free Trial)</p>{error_html}<form method='post'><input name='username' placeholder='Demo username' required><input name='password' type='password' placeholder='Password' required><button>LOGIN TO DEMO</button></form></div></body></html>"""
 
     @app.route("/logout")
     def logout():
@@ -504,8 +516,13 @@ def run_online_demo():
 
     @app.route("/", methods=["GET"])
     def home():
+        is_expired, days_left = check_validity()
+        if is_expired:
+            return expired_html()
+
         if not login_required():
             return redirect(url_for("login"))
+
         d = demo_load()
         leads = d.get("leads", [])
         active = sum(1 for x in leads if normalize_status(x.get("status")) not in ("Converted", "Lost"))
@@ -513,13 +530,20 @@ def run_online_demo():
         conversion = converted / len(leads) * 100 if leads else 0
         pipeline = sum(safe_amount(x.get("loan_amount", 0)) for x in leads if normalize_status(x.get("status")) in ("New","Contacted","Follow-up"))
         rows = "".join(f"<tr><td>{str(x.get('name',''))}</td><td>{str(x.get('phone',''))}</td><td>{str(x.get('service',''))}</td><td>{normalize_status(x.get('status'))}</td><td>{normalize_priority(x.get('priority'))}</td><td>₹{safe_amount(x.get('loan_amount',0)):,.0f}</td><td>{str(x.get('followup_date',''))}</td></tr>" for x in leads)
+        
+        trial_banner = f"<div style='background:#fef3c7;color:#92400e;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-weight:bold;display:flex;justify-content:space-between;'><span>⏳ Demo Trial Active</span><span>{days_left} Days Remaining</span></div>"
+
         html = f"""<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'><title>DhandaSmart Demo</title><style>
-        *{{box-sizing:border-box}}body{{margin:0;font-family:Arial,sans-serif;background:#eef2f7;color:#111827}}header{{background:#172033;color:white;padding:18px}}.wrap{{max-width:1100px;margin:auto;padding:0 14px}}header h1{{margin:0;font-size:24px}}header p{{margin:4px 0 0;color:#cbd5e1}}.top{{display:flex;justify-content:space-between;align-items:center;gap:10px}}a{{color:inherit}}.grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding-top:16px}}.card,.section{{background:white;border:1px solid #e2e8f0;border-radius:10px;padding:14px}}.value{{font-size:23px;font-weight:bold;margin-top:5px}}.label{{font-size:11px;color:#64748b;font-weight:bold}}.section{{margin-top:16px}}.tablebox{{overflow-x:auto}}table{{width:100%;min-width:760px;border-collapse:collapse}}th,td{{padding:9px;border-bottom:1px solid #e2e8f0;text-align:left;font-size:13px}}th{{background:#f8fafc}}form{{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}}input,select,textarea,button{{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:7px;font:inherit}}textarea{{min-height:80px}}.full{{grid-column:1/-1}}button{{background:#172033;color:white;font-weight:bold;border:0}}@media(max-width:700px){{.grid{{grid-template-columns:repeat(2,1fr)}}form{{grid-template-columns:1fr}}.full{{grid-column:auto}}header h1{{font-size:21px}}}}
-        </style></head><body><header><div class='wrap top'><div><h1>DHANDASMART</h1><p>Manage. Market. Grow. — DEMO</p></div><a href='/logout'>Logout</a></div></header><main class='wrap'><div class='grid'><div class='card'><div class='label'>TOTAL LEADS</div><div class='value'>{len(leads)}</div></div><div class='card'><div class='label'>ACTIVE LEADS</div><div class='value'>{active}</div></div><div class='card'><div class='label'>CONVERSION</div><div class='value'>{conversion:.1f}%</div></div><div class='card'><div class='label'>PIPELINE</div><div class='value'>₹{pipeline:,.0f}</div></div></div><div class='section'><h2>📊 Lead CRM</h2><div class='tablebox'><table><thead><tr><th>Name</th><th>Phone</th><th>Service</th><th>Status</th><th>Priority</th><th>Amount</th><th>Follow-up</th></tr></thead><tbody>{rows}</tbody></table></div></div><div class='section'><h2>➕ Add New Demo Lead</h2><form method='post' action='/add'><input name='name' placeholder='Customer name' required><input name='phone' placeholder='Phone'><input name='service' placeholder='Interested service'><select name='status'><option>New</option><option>Contacted</option><option>Follow-up</option><option>Converted</option><option>Lost</option></select><select name='priority'><option>High</option><option selected>Medium</option><option>Low</option></select><input name='source' placeholder='Lead source'><input name='amount' placeholder='Expected amount'><input name='followup_date' placeholder='Follow-up DD-MM-YYYY'><textarea class='full' name='notes' placeholder='Notes'></textarea><button class='full'>SAVE DEMO LEAD</button></form></div></main></body></html>"""
+        *{{box-sizing:border-box}}body{{margin:0;font-family:Arial,sans-serif;background:#eef2f7;color:#111827}}header{{background:#172033;color:white;padding:18px}}.wrap{{max-width:1100px;margin:auto;padding:0 14px}}header h1{{margin:0;font-size:24px}}header p{{margin:4px 0 0;color:#cbd5e1}}.top{{display:flex;justify-content:space-between;align-items:center;gap:10px}}a{{color:inherit}}.grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding-top:10px}}.card,.section{{background:white;border:1px solid #e2e8f0;border-radius:10px;padding:14px}}.value{{font-size:23px;font-weight:bold;margin-top:5px}}.label{{font-size:11px;color:#64748b;font-weight:bold}}.section{{margin-top:16px}}.tablebox{{overflow-x:auto}}table{{width:100%;min-width:760px;border-collapse:collapse}}th,td{{padding:9px;border-bottom:1px solid #e2e8f0;text-align:left;font-size:13px}}th{{background:#f8fafc}}form{{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}}input,select,textarea,button{{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:7px;font:inherit}}textarea{{min-height:80px}}.full{{grid-column:1/-1}}button{{background:#172033;color:white;font-weight:bold;border:0}}@media(max-width:700px){{.grid{{grid-template-columns:repeat(2,1fr)}}form{{grid-template-columns:1fr}}.full{{grid-column:auto}}header h1{{font-size:21px}}}}
+        </style></head><body><header><div class='wrap top'><div><h1>DHANDASMART</h1><p>Manage. Market. Grow. — DEMO</p></div><a href='/logout'>Logout</a></div></header><main class='wrap' style='padding-top:14px;'>{trial_banner}<div class='grid'><div class='card'><div class='label'>TOTAL LEADS</div><div class='value'>{len(leads)}</div></div><div class='card'><div class='label'>ACTIVE LEADS</div><div class='value'>{active}</div></div><div class='card'><div class='label'>CONVERSION</div><div class='value'>{conversion:.1f}%</div></div><div class='card'><div class='label'>PIPELINE</div><div class='value'>₹{pipeline:,.0f}</div></div></div><div class='section'><h2>📊 Lead CRM</h2><div class='tablebox'><table><thead><tr><th>Name</th><th>Phone</th><th>Service</th><th>Status</th><th>Priority</th><th>Amount</th><th>Follow-up</th></tr></thead><tbody>{rows}</tbody></table></div></div><div class='section'><h2>➕ Add New Demo Lead</h2><form method='post' action='/add'><input name='name' placeholder='Customer name' required><input name='phone' placeholder='Phone'><input name='service' placeholder='Interested service'><select name='status'><option>New</option><option>Contacted</option><option>Follow-up</option><option>Converted</option><option>Lost</option></select><select name='priority'><option>High</option><option selected>Medium</option><option>Low</option></select><input name='source' placeholder='Lead source'><input name='amount' placeholder='Expected amount'><input name='followup_date' placeholder='Follow-up DD-MM-YYYY'><textarea class='full' name='notes' placeholder='Notes'></textarea><button class='full'>SAVE DEMO LEAD</button></form></div></main></body></html>"""
         return html
 
     @app.route("/add", methods=["POST"])
     def add():
+        is_expired, _ = check_validity()
+        if is_expired:
+            return expired_html()
+
         if not login_required():
             return redirect(url_for("login"))
         d = demo_load()
@@ -533,6 +557,8 @@ def run_online_demo():
         })
         demo_save(d)
         return redirect(url_for("home"))
+
+    demo_save(demo_load())
 
     host = os.environ.get("HOST", "0.0.0.0")
     port = int(os.environ.get("PORT", "5000"))
@@ -761,7 +787,6 @@ def followup_tasks():
 
     columns = ("Lead", "Phone", "Status", "Priority", "Follow-up", "Source", "Amount")
     tree = ttk.Treeview(frame, columns=columns, show="headings")
-    # ttk is imported below if available; otherwise use the fallback listbox.
     for col in columns:
         tree.heading(col, text=col)
         tree.column(col, width=110, anchor="w")
@@ -879,7 +904,6 @@ def followup_tasks():
               font=("Segoe UI", 9, "bold"), padx=10, pady=7).pack(side="right", padx=4)
 
     refresh()
-
 
 
 def customer_followup_history():
@@ -1085,14 +1109,13 @@ def customer_followup_history():
 
     refresh_customers()
 
-def business_profile():
 
+def business_profile():
     name = simpledialog.askstring(
         "Business Profile",
         "Enter Business Name:",
         initialvalue=data.get("business_name", "")
     )
-
     if not name:
         return
 
@@ -1101,20 +1124,13 @@ def business_profile():
         "Enter Business Type:",
         initialvalue=data.get("business_type", "")
     )
-
     if not btype:
         return
 
     data["business_name"] = name.strip()
     data["business_type"] = btype.strip()
-
     save_data()
-
-    messagebox.showinfo(
-        "Saved",
-        "Business profile saved successfully."
-    )
-
+    messagebox.showinfo("Saved", "Business profile saved successfully.")
     dashboard()
 
 
@@ -1123,41 +1139,23 @@ def business_profile():
 # =========================
 
 def marketing_engine():
-
-    reviews = simpledialog.askinteger(
-        "AI Marketing Engine",
-        "Total Google Reviews:",
-        minvalue=0
-    )
+    reviews = simpledialog.askinteger("AI Marketing Engine", "Total Google Reviews:", minvalue=0)
     if reviews is None:
         return
 
-    photos = simpledialog.askinteger(
-        "AI Marketing Engine",
-        "Business Photos:",
-        minvalue=0
-    )
+    photos = simpledialog.askinteger("AI Marketing Engine", "Business Photos:", minvalue=0)
     if photos is None:
         return
 
-    description = simpledialog.askstring(
-        "AI Marketing Engine",
-        "Business description complete? (yes/no):"
-    )
+    description = simpledialog.askstring("AI Marketing Engine", "Business description complete? (yes/no):")
     if description is None:
         return
 
-    website = simpledialog.askstring(
-        "AI Marketing Engine",
-        "Website available? (yes/no):"
-    )
+    website = simpledialog.askstring("AI Marketing Engine", "Website available? (yes/no):")
     if website is None:
         return
 
-    social = simpledialog.askstring(
-        "AI Marketing Engine",
-        "Social media available? (yes/no):"
-    )
+    social = simpledialog.askstring("AI Marketing Engine", "Social media available? (yes/no):")
     if social is None:
         return
 
@@ -1194,36 +1192,28 @@ def marketing_engine():
         strengths.append("Basic photo presence.")
     else:
         weaknesses.append("Very low photo presence.")
-        actions.append(
-            "Add photos of services, office, team and work."
-        )
+        actions.append("Add photos of services, office, team and work.")
 
     if description == "yes":
         score += 20
         strengths.append("Business description is complete.")
     else:
         weaknesses.append("Business description is incomplete.")
-        actions.append(
-            "Create an SEO-friendly business description."
-        )
+        actions.append("Create an SEO-friendly business description.")
 
     if website == "yes":
         score += 15
         strengths.append("Website presence available.")
     else:
         weaknesses.append("Website presence missing.")
-        actions.append(
-            "Create a simple business landing page."
-        )
+        actions.append("Create a simple business landing page.")
 
     if social == "yes":
         score += 15
         strengths.append("Social media presence available.")
     else:
         weaknesses.append("Social media presence missing.")
-        actions.append(
-            "Start consistent social media posting."
-        )
+        actions.append("Start consistent social media posting.")
 
     if score >= 80:
         status = "Excellent"
@@ -1258,7 +1248,6 @@ Status          : {status}
 STRENGTHS
 ----------------------------------------
 """
-
     if strengths:
         for item in strengths:
             text += "+ " + item + "\n"
@@ -1270,7 +1259,6 @@ STRENGTHS
 WEAKNESSES
 ----------------------------------------
 """
-
     if weaknesses:
         for item in weaknesses:
             text += "- " + item + "\n"
@@ -1282,7 +1270,6 @@ WEAKNESSES
 PRIORITY ACTION PLAN
 ----------------------------------------
 """
-
     if actions:
         for i, action in enumerate(actions, 1):
             text += f"{i}. {action}\n"
@@ -1294,23 +1281,13 @@ PRIORITY ACTION PLAN
 Audit saved successfully.
 ========================================
 """
-
     show(text)
 
 
-# =========================
-# SMART RECOMMENDATIONS
-# =========================
-
 def smart_recommendations():
-
     audit = data.get("audit", {})
-
     if not audit:
-        messagebox.showwarning(
-            "Run Audit",
-            "Please run AI Marketing Engine first."
-        )
+        messagebox.showwarning("Run Audit", "Please run AI Marketing Engine first.")
         return
 
     score = audit.get("score", 0)
@@ -1318,36 +1295,18 @@ def smart_recommendations():
     photos = audit.get("photos", 0)
 
     recommendations = []
-
     if reviews < 20:
-        recommendations.append(
-            "Increase genuine customer reviews."
-        )
-
+        recommendations.append("Increase genuine customer reviews.")
     if photos < 10:
-        recommendations.append(
-            "Add more high-quality business photos."
-        )
-
+        recommendations.append("Add more high-quality business photos.")
     if audit.get("description") != "yes":
-        recommendations.append(
-            "Improve your business description."
-        )
-
+        recommendations.append("Improve your business description.")
     if audit.get("website") != "yes":
-        recommendations.append(
-            "Create a simple business website/landing page."
-        )
-
+        recommendations.append("Create a simple business website/landing page.")
     if audit.get("social") != "yes":
-        recommendations.append(
-            "Start regular social media posting."
-        )
-
+        recommendations.append("Start regular social media posting.")
     if len(data.get("leads", [])) == 0:
-        recommendations.append(
-            "Start collecting and tracking leads."
-        )
+        recommendations.append("Start collecting and tracking leads.")
 
     text = f"""
 ========================================
@@ -1360,7 +1319,6 @@ Current Marketing Score : {score} / 100
 TOP RECOMMENDATIONS
 ----------------------------------------
 """
-
     if recommendations:
         for i, rec in enumerate(recommendations, 1):
             text += f"{i}. {rec}\n"
@@ -1368,36 +1326,20 @@ TOP RECOMMENDATIONS
         text += "Your marketing foundation is strong.\n"
 
     text += "\n========================================"
-
     show(text)
 
 
-# =========================
-# CONTENT GENERATOR
-# =========================
-
 def content_generator():
-
     business = data.get("business_name", "")
-
     if not business:
-        messagebox.showwarning(
-            "Business Profile",
-            "First create Business Profile."
-        )
+        messagebox.showwarning("Business Profile", "First create Business Profile.")
         return
 
-    service = simpledialog.askstring(
-        "Content Generator",
-        "Enter service/product:"
-    )
+    service = simpledialog.askstring("Content Generator", "Enter service/product:")
     if not service:
         return
 
-    platform = simpledialog.askstring(
-        "Content Generator",
-        "Platform (Facebook/Instagram/WhatsApp):"
-    )
+    platform = simpledialog.askstring("Content Generator", "Platform (Facebook/Instagram/WhatsApp):")
     if not platform:
         return
 
@@ -1424,7 +1366,6 @@ with simple process and customer-focused service.
         "platform": platform,
         "content": post
     })
-
     save_data()
 
     show(
@@ -1436,22 +1377,12 @@ with simple process and customer-focused service.
     )
 
 
-# =========================
-# SEO ANALYSIS
-# =========================
-
 def seo_analysis():
-
-    keyword = simpledialog.askstring(
-        "SEO Analysis",
-        "Enter main keyword:"
-    )
-
+    keyword = simpledialog.askstring("SEO Analysis", "Enter main keyword:")
     if not keyword:
         return
 
     business = data.get("business_name", "Your Business")
-
     text = f"""
 ========================================
              SEO ANALYSIS
@@ -1490,45 +1421,21 @@ It does not fetch live Google search data.
 
 ========================================
 """
-
     show(text)
 
 
-# =========================
-# REVIEW REPLY
-# =========================
-
 def review_reply():
-
-    review = simpledialog.askstring(
-        "Review Reply Generator",
-        "Enter customer review:"
-    )
-
+    review = simpledialog.askstring("Review Reply Generator", "Enter customer review:")
     if not review:
         return
 
     lower = review.lower()
-
     if any(word in lower for word in ["good", "great", "excellent", "nice"]):
-        reply = (
-            "Thank you so much for your valuable feedback! "
-            "We are happy to know that you had a great "
-            "experience. We look forward to serving you again."
-        )
+        reply = "Thank you so much for your valuable feedback! We are happy to know that you had a great experience. We look forward to serving you again."
     elif any(word in lower for word in ["bad", "poor", "worst", "late"]):
-        reply = (
-            "Thank you for sharing your feedback. "
-            "We are sorry that your experience did not "
-            "meet expectations. We take your feedback "
-            "seriously and will work to improve."
-        )
+        reply = "Thank you for sharing your feedback. We are sorry that your experience did not meet expectations. We take your feedback seriously and will work to improve."
     else:
-        reply = (
-            "Thank you for taking the time to share your "
-            "feedback. We truly appreciate your support "
-            "and look forward to serving you again."
-        )
+        reply = "Thank you for taking the time to share your feedback. We truly appreciate your support and look forward to serving you again."
 
     show(
         "========================================\n"
@@ -1542,17 +1449,8 @@ def review_reply():
     )
 
 
-# =========================
-# SOCIAL MEDIA
-# =========================
-
 def social_media():
-
-    platform = simpledialog.askstring(
-        "Social Media",
-        "Platform:"
-    )
-
+    platform = simpledialog.askstring("Social Media", "Platform:")
     if not platform:
         return
 
@@ -1587,21 +1485,11 @@ Sunday    - Offer / Engagement Post
 
 ========================================
 """
-
     show(text)
 
 
-# =========================
-# COMPETITOR ANALYSIS
-# =========================
-
 def competitor_analysis():
-
-    competitor = simpledialog.askstring(
-        "Competitor Analysis",
-        "Enter competitor name:"
-    )
-
+    competitor = simpledialog.askstring("Competitor Analysis", "Enter competitor name:")
     if not competitor:
         return
 
@@ -1643,7 +1531,6 @@ It does not fetch live competitor data.
 
 ========================================
 """
-
     show(text)
 
 
@@ -1652,7 +1539,6 @@ It does not fetch live competitor data.
 # ============================================================
 
 def lead_management():
-
     leads = data.setdefault("leads", [])
 
     window = tk.Toplevel(root)
@@ -1661,16 +1547,11 @@ def lead_management():
     window.minsize(600, 450)
     maximize_for_screen(window)
 
-    # Scrollable CRM content so every option remains accessible
     canvas = tk.Canvas(window, highlightthickness=0)
     scrollbar = tk.Scrollbar(window, orient="vertical", command=canvas.yview)
     content = tk.Frame(canvas)
 
-    content.bind(
-        "<Configure>",
-        lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-    )
-
+    content.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
     canvas_window = canvas.create_window((0, 0), window=content, anchor="nw")
 
     def resize_content(event):
@@ -1682,90 +1563,30 @@ def lead_management():
     scrollbar.pack(side="right", fill="y")
     canvas.pack(side="left", fill="both", expand=True)
 
-    tk.Label(
-        content,
-        text="ADVANCED LEAD CRM",
-        font=("Arial", 21, "bold")
-    ).pack(pady=12)
-
-    tk.Label(
-        content,
-        text="New → Contacted → Follow-up → Converted / Lost",
-        font=("Arial", 9)
-    ).pack(pady=(0, 10))
-
-    # -------------------------
-    # ADD LEAD
-    # -------------------------
+    tk.Label(content, text="ADVANCED LEAD CRM", font=("Arial", 21, "bold")).pack(pady=12)
+    tk.Label(content, text="New → Contacted → Follow-up → Converted / Lost", font=("Arial", 9)).pack(pady=(0, 10))
 
     def add_lead():
-
-        name = simpledialog.askstring(
-            "Add Lead", "Customer Name:", parent=window
-        )
+        name = simpledialog.askstring("Add Lead", "Customer Name:", parent=window)
         if not name:
             return
 
-        phone = simpledialog.askstring(
-            "Add Lead", "Phone:", parent=window
-        )
-
-        service = simpledialog.askstring(
-            "Add Lead", "Interested Service:", parent=window
-        )
-
-        status = simpledialog.askstring(
-            "Add Lead",
-            "Status:\nNew / Contacted / Follow-up / Converted / Lost",
-            initialvalue="New",
-            parent=window
-        )
-
+        phone = simpledialog.askstring("Add Lead", "Phone:", parent=window)
+        service = simpledialog.askstring("Add Lead", "Interested Service:", parent=window)
+        status = simpledialog.askstring("Add Lead", "Status:\nNew / Contacted / Follow-up / Converted / Lost", initialvalue="New", parent=window)
         final_status = normalize_status(status)
 
         followup_date = ""
-
         if final_status == "Follow-up":
-            followup_date = simpledialog.askstring(
-                "Follow-up Date",
-                "Enter date (DD-MM-YYYY):",
-                parent=window
-            )
-
+            followup_date = simpledialog.askstring("Follow-up Date", "Enter date (DD-MM-YYYY):", parent=window)
             if followup_date and not parse_followup_date(followup_date):
-                messagebox.showwarning(
-                    "Invalid Date",
-                    "Use DD-MM-YYYY format.",
-                    parent=window
-                )
+                messagebox.showwarning("Invalid Date", "Use DD-MM-YYYY format.", parent=window)
                 return
 
-        source = simpledialog.askstring(
-            "Lead Source",
-            "Source (Facebook / Google / Referral / Call / Other):",
-            initialvalue="Other",
-            parent=window
-        )
-
-        loan_amount = simpledialog.askstring(
-            "Expected Loan Amount",
-            "Expected Amount (example: 500000):",
-            initialvalue="0",
-            parent=window
-        )
-
-        priority = simpledialog.askstring(
-            "Lead Priority",
-            "Priority (High / Medium / Low):",
-            initialvalue="Medium",
-            parent=window
-        )
-
-        notes = simpledialog.askstring(
-            "Lead Notes",
-            "Notes:",
-            parent=window
-        )
+        source = simpledialog.askstring("Lead Source", "Source (Facebook / Google / Referral / Call / Other):", initialvalue="Other", parent=window)
+        loan_amount = simpledialog.askstring("Expected Loan Amount", "Expected Amount (example: 500000):", initialvalue="0", parent=window)
+        priority = simpledialog.askstring("Lead Priority", "Priority (High / Medium / Low):", initialvalue="Medium", parent=window)
+        notes = simpledialog.askstring("Lead Notes", "Notes:", parent=window)
 
         lead = {
             "name": name.strip(),
@@ -1782,24 +1603,12 @@ def lead_management():
 
         leads.append(lead)
         save_data()
-
-        messagebox.showinfo(
-            "Lead Saved",
-            "Lead added successfully.",
-            parent=window
-        )
-
+        messagebox.showinfo("Lead Saved", "Lead added successfully.", parent=window)
         dashboard()
 
-    # -------------------------
-    # FORMAT LEAD
-    # -------------------------
-
     def format_lead(number, lead):
-
         status = normalize_status(lead.get("status"))
         priority = normalize_priority(lead.get("priority"))
-
         return (
             f"{number}. {lead.get('name', '')}\n"
             f"   Phone        : {lead.get('phone', '')}\n"
@@ -1814,18 +1623,9 @@ def lead_management():
             "----------------------------------------\n"
         )
 
-    # -------------------------
-    # VIEW ALL
-    # -------------------------
-
     def view_leads():
-
         if not leads:
-            messagebox.showinfo(
-                "View Leads",
-                "No leads available.",
-                parent=window
-            )
+            messagebox.showinfo("View Leads", "No leads available.", parent=window)
             return
 
         view_window = tk.Toplevel(window)
@@ -1834,26 +1634,15 @@ def lead_management():
         view_window.minsize(650, 450)
         maximize_for_screen(view_window)
 
-        tk.Label(
-            view_window,
-            text="LEAD DATABASE",
-            font=("Arial", 20, "bold")
-        ).pack(pady=12)
-
+        tk.Label(view_window, text="LEAD DATABASE", font=("Arial", 20, "bold")).pack(pady=12)
         frame = tk.Frame(view_window)
         frame.pack(fill="both", expand=True, padx=15, pady=10)
 
         scrollbar = tk.Scrollbar(frame)
         scrollbar.pack(side="right", fill="y")
 
-        text_box = tk.Text(
-            frame,
-            font=("Consolas", 10),
-            wrap="word",
-            yscrollcommand=scrollbar.set
-        )
+        text_box = tk.Text(frame, font=("Consolas", 10), wrap="word", yscrollcommand=scrollbar.set)
         text_box.pack(side="left", fill="both", expand=True)
-
         scrollbar.config(command=text_box.yview)
 
         text = ""
@@ -1863,26 +1652,12 @@ def lead_management():
         text_box.insert("1.0", text)
         text_box.config(state="disabled")
 
-    # -------------------------
-    # SEARCH
-    # -------------------------
-
     def search_lead():
-
         if not leads:
-            messagebox.showwarning(
-                "No Leads",
-                "No leads available.",
-                parent=window
-            )
+            messagebox.showwarning("No Leads", "No leads available.", parent=window)
             return
 
-        query = simpledialog.askstring(
-            "Search Lead",
-            "Search Name / Phone / Service / Source / Notes:",
-            parent=window
-        )
-
+        query = simpledialog.askstring("Search Lead", "Search Name / Phone / Service / Source / Notes:", parent=window)
         if not query:
             return
 
@@ -1890,7 +1665,6 @@ def lead_management():
         results = []
 
         for i, lead in enumerate(leads, 1):
-
             searchable = " ".join([
                 str(lead.get("name", "")),
                 str(lead.get("phone", "")),
@@ -1905,136 +1679,63 @@ def lead_management():
             if query in searchable:
                 results.append((i, lead))
 
-        text = """
-========================================
-             SEARCH RESULT
-========================================
-
-"""
-
+        text = "\n========================================\n             SEARCH RESULT\n========================================\n\n"
         if results:
             for number, lead in results:
                 text += format_lead(number, lead)
         else:
             text += "No matching lead found.\n"
-
         text += "========================================"
         show(text)
 
-    # -------------------------
-    # FILTER STATUS
-    # -------------------------
-
     def filter_status():
-
         if not leads:
-            messagebox.showwarning(
-                "No Leads",
-                "No leads available.",
-                parent=window
-            )
+            messagebox.showwarning("No Leads", "No leads available.", parent=window)
             return
 
-        status = simpledialog.askstring(
-            "Filter Status",
-            "New / Contacted / Follow-up / Converted / Lost:",
-            parent=window
-        )
-
+        status = simpledialog.askstring("Filter Status", "New / Contacted / Follow-up / Converted / Lost:", parent=window)
         if not status:
             return
 
         status = normalize_status(status)
+        results = [(i, lead) for i, lead in enumerate(leads, 1) if normalize_status(lead.get("status")) == status]
 
-        results = [
-            (i, lead)
-            for i, lead in enumerate(leads, 1)
-            if normalize_status(lead.get("status")) == status
-        ]
-
-        text = f"""
-========================================
-          STATUS: {status.upper()}
-========================================
-
-"""
-
+        text = f"\n========================================\n          STATUS: {status.upper()}\n========================================\n\n"
         if results:
             for number, lead in results:
                 text += format_lead(number, lead)
         else:
             text += "No leads found.\n"
-
         text += "========================================"
         show(text)
 
-    # -------------------------
-    # FILTER PRIORITY
-    # -------------------------
-
     def filter_priority():
-
-        priority = simpledialog.askstring(
-            "Filter Priority",
-            "High / Medium / Low:",
-            initialvalue="High",
-            parent=window
-        )
-
+        priority = simpledialog.askstring("Filter Priority", "High / Medium / Low:", initialvalue="High", parent=window)
         if not priority:
             return
 
         priority = normalize_priority(priority)
+        results = [(i, lead) for i, lead in enumerate(leads, 1) if normalize_priority(lead.get("priority")) == priority]
 
-        results = [
-            (i, lead)
-            for i, lead in enumerate(leads, 1)
-            if normalize_priority(lead.get("priority")) == priority
-        ]
-
-        text = f"""
-========================================
-         PRIORITY: {priority.upper()}
-========================================
-
-"""
-
+        text = f"\n========================================\n         PRIORITY: {priority.upper()}\n========================================\n\n"
         if results:
             for number, lead in results:
                 text += format_lead(number, lead)
         else:
             text += "No leads found.\n"
-
         text += "========================================"
         show(text)
 
-    # -------------------------
-    # EDIT LEAD
-    # -------------------------
-
     def edit_lead():
-
         if not leads:
-            messagebox.showwarning(
-                "No Leads",
-                "No leads available.",
-                parent=window
-            )
+            messagebox.showwarning("No Leads", "No leads available.", parent=window)
             return
 
-        number = simpledialog.askinteger(
-            "Edit Lead",
-            f"Lead Number (1-{len(leads)}):",
-            minvalue=1,
-            maxvalue=len(leads),
-            parent=window
-        )
-
+        number = simpledialog.askinteger("Edit Lead", f"Lead Number (1-{len(leads)}):", minvalue=1, maxvalue=len(leads), parent=window)
         if number is None:
             return
 
         lead = leads[number - 1]
-
         fields = [
             ("name", "Customer Name"),
             ("phone", "Phone"),
@@ -2046,78 +1747,35 @@ def lead_management():
         ]
 
         for key, label in fields:
-
             current = lead.get(key, "")
-
             if key == "loan_amount":
                 current = str(current)
 
-            value = simpledialog.askstring(
-                "Edit Lead",
-                label + ":",
-                initialvalue=str(current),
-                parent=window
-            )
-
+            value = simpledialog.askstring("Edit Lead", label + ":", initialvalue=str(current), parent=window)
             if value is not None:
-
                 if key == "loan_amount":
                     lead[key] = safe_amount(value)
-
                 elif key == "priority":
                     lead[key] = normalize_priority(value)
-
                 else:
                     lead[key] = value.strip()
 
         save_data()
-
-        messagebox.showinfo(
-            "Updated",
-            "Lead details updated successfully.",
-            parent=window
-        )
-
+        messagebox.showinfo("Updated", "Lead details updated successfully.", parent=window)
         view_leads()
 
-    # -------------------------
-    # UPDATE STATUS
-    # -------------------------
-
     def update_status():
-
         if not leads:
-            messagebox.showwarning(
-                "No Leads",
-                "No leads available.",
-                parent=window
-            )
+            messagebox.showwarning("No Leads", "No leads available.", parent=window)
             return
 
-        number = simpledialog.askinteger(
-            "Update Lead",
-            f"Lead Number (1-{len(leads)}):",
-            minvalue=1,
-            maxvalue=len(leads),
-            parent=window
-        )
-
+        number = simpledialog.askinteger("Update Lead", f"Lead Number (1-{len(leads)}):", minvalue=1, maxvalue=len(leads), parent=window)
         if number is None:
             return
 
         lead = leads[number - 1]
-
-        current = normalize_status(
-            lead.get("status", "New")
-        )
-
-        status = simpledialog.askstring(
-            "Update Status",
-            "New Status:\nNew / Contacted / Follow-up / Converted / Lost",
-            initialvalue=current,
-            parent=window
-        )
-
+        current = normalize_status(lead.get("status", "New"))
+        status = simpledialog.askstring("Update Status", "New Status:\nNew / Contacted / Follow-up / Converted / Lost", initialvalue=current, parent=window)
         if not status:
             return
 
@@ -2125,58 +1783,29 @@ def lead_management():
         lead["status"] = status
 
         if status == "Follow-up":
-
-            followup = simpledialog.askstring(
-                "Follow-up Date",
-                "Date (DD-MM-YYYY):",
-                initialvalue=lead.get("followup_date", ""),
-                parent=window
-            )
-
+            followup = simpledialog.askstring("Follow-up Date", "Date (DD-MM-YYYY):", initialvalue=lead.get("followup_date", ""), parent=window)
             if followup and not parse_followup_date(followup):
-                messagebox.showwarning(
-                    "Invalid Date",
-                    "Use DD-MM-YYYY format.",
-                    parent=window
-                )
+                messagebox.showwarning("Invalid Date", "Use DD-MM-YYYY format.", parent=window)
                 return
-
             lead["followup_date"] = followup or ""
-
         else:
             lead["followup_date"] = ""
 
         save_data()
-
-        messagebox.showinfo(
-            "Updated",
-            "Lead status updated successfully.",
-            parent=window
-        )
-
+        messagebox.showinfo("Updated", "Lead status updated successfully.", parent=window)
         dashboard()
 
-    # -------------------------
-    # FOLLOW-UP DASHBOARD
-    # -------------------------
-
     def followup_dashboard():
-
         today_items = []
         overdue_items = []
         upcoming_items = []
-
         today = date.today()
 
         for i, lead in enumerate(leads, 1):
-
             if normalize_status(lead.get("status")) != "Follow-up":
                 continue
 
-            d = parse_followup_date(
-                lead.get("followup_date", "")
-            )
-
+            d = parse_followup_date(lead.get("followup_date", ""))
             if not d:
                 continue
 
@@ -2195,15 +1824,9 @@ def lead_management():
 OVERDUE
 ----------------------------------------
 """
-
         if overdue_items:
             for number, lead, d in overdue_items:
-                text += (
-                    f"{number}. {lead.get('name', '')} | "
-                    f"{lead.get('phone', '')} | "
-                    f"₹{safe_amount(lead.get('loan_amount', 0)):,.0f} | "
-                    f"Due: {d.strftime('%d-%m-%Y')}\n"
-                )
+                text += f"{number}. {lead.get('name', '')} | {lead.get('phone', '')} | ₹{safe_amount(lead.get('loan_amount', 0)):,.0f} | Due: {d.strftime('%d-%m-%Y')}\n"
         else:
             text += "No overdue follow-ups.\n"
 
@@ -2212,14 +1835,9 @@ OVERDUE
 DUE TODAY
 ----------------------------------------
 """
-
         if today_items:
             for number, lead, d in today_items:
-                text += (
-                    f"{number}. {lead.get('name', '')} | "
-                    f"{lead.get('phone', '')} | "
-                    f"₹{safe_amount(lead.get('loan_amount', 0)):,.0f}\n"
-                )
+                text += f"{number}. {lead.get('name', '')} | {lead.get('phone', '')} | ₹{safe_amount(lead.get('loan_amount', 0)):,.0f}\n"
         else:
             text += "No follow-ups due today.\n"
 
@@ -2228,40 +1846,21 @@ DUE TODAY
 UPCOMING - NEXT 7 DAYS
 ----------------------------------------
 """
-
         if upcoming_items:
             for number, lead, d in upcoming_items:
-                text += (
-                    f"{number}. {lead.get('name', '')} | "
-                    f"{lead.get('phone', '')} | "
-                    f"{d.strftime('%d-%m-%Y')}\n"
-                )
+                text += f"{number}. {lead.get('name', '')} | {lead.get('phone', '')} | {d.strftime('%d-%m-%Y')}\n"
         else:
             text += "No upcoming follow-ups.\n"
 
         text += "\n========================================"
-
         show(text)
 
-    # -------------------------
-    # ANALYTICS
-    # -------------------------
-
     def lead_statistics():
-
         counts = lead_status_counts()
         total = len(leads)
         active = counts["New"] + counts["Contacted"] + counts["Follow-up"]
-
-        conversion_rate = (
-            counts["Converted"] / total * 100
-            if total else 0
-        )
-
-        high_priority = sum(
-            1 for lead in leads
-            if normalize_priority(lead.get("priority")) == "High"
-        )
+        conversion_rate = (counts["Converted"] / total * 100 if total else 0)
+        high_priority = sum(1 for lead in leads if normalize_priority(lead.get("priority")) == "High")
 
         text = f"""
 ========================================
@@ -2299,61 +1898,31 @@ Conversion Rate    : {conversion_rate:.1f}%
 FOLLOW-UP
 ----------------------------------------
 
-Overdue            : {sum(
-    1 for lead in leads
-    if normalize_status(lead.get("status")) == "Follow-up"
-    and followup_category(lead.get("followup_date")) == "Overdue"
-)}
+Overdue            : {sum(1 for lead in leads if normalize_status(lead.get("status")) == "Follow-up" and followup_category(lead.get("followup_date")) == "Overdue")}
 
-Due Today          : {sum(
-    1 for lead in leads
-    if normalize_status(lead.get("status")) == "Follow-up"
-    and followup_category(lead.get("followup_date")) == "Due Today"
-)}
+Due Today          : {sum(1 for lead in leads if normalize_status(lead.get("status")) == "Follow-up" and followup_category(lead.get("followup_date")) == "Due Today")}
 
 ========================================
 """
-
         show(text)
 
-    # -------------------------
-    # SOURCE REPORT
-    # -------------------------
-
     def lead_source_report():
-
         if not leads:
             show("No leads available.")
             return
 
         sources = {}
-
         for lead in leads:
             source = lead.get("source", "Unknown").strip() or "Unknown"
             sources[source] = sources.get(source, 0) + 1
 
-        ordered = sorted(
-            sources.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )
-
-        text = """
-========================================
-          LEAD SOURCE REPORT
-========================================
-
-"""
-
+        ordered = sorted(sources.items(), key=lambda x: x[1], reverse=True)
+        text = "\n========================================\n          LEAD SOURCE REPORT\n========================================\n\n"
         for source, count in ordered:
             percentage = count / len(leads) * 100
-            text += (
-                f"{source:<25} {count:>4} leads  "
-                f"({percentage:.1f}%)\n"
-            )
+            text += f"{source:<25} {count:>4} leads  ({percentage:.1f}%)\n"
 
         best = ordered[0][0]
-
         text += f"""
 ----------------------------------------
 BEST LEAD SOURCE : {best}
@@ -2364,69 +1933,29 @@ where your enquiries are coming from.
 
 ========================================
 """
-
         show(text)
 
-    # -------------------------
-    # DELETE LEAD
-    # -------------------------
-
     def delete_lead():
-
         if not leads:
-            messagebox.showwarning(
-                "No Leads",
-                "No leads available.",
-                parent=window
-            )
+            messagebox.showwarning("No Leads", "No leads available.", parent=window)
             return
 
-        number = simpledialog.askinteger(
-            "Delete Lead",
-            f"Lead Number (1-{len(leads)}):",
-            minvalue=1,
-            maxvalue=len(leads),
-            parent=window
-        )
-
+        number = simpledialog.askinteger("Delete Lead", f"Lead Number (1-{len(leads)}):", minvalue=1, maxvalue=len(leads), parent=window)
         if number is None:
             return
 
         lead = leads[number - 1]
-
-        confirm = messagebox.askyesno(
-            "Confirm Delete",
-            f"Delete lead '{lead.get('name', '')}'?",
-            parent=window
-        )
-
+        confirm = messagebox.askyesno("Confirm Delete", f"Delete lead '{lead.get('name', '')}'?", parent=window)
         if not confirm:
             return
 
         leads.pop(number - 1)
         save_data()
-
-        messagebox.showinfo(
-            "Deleted",
-            "Lead deleted successfully.",
-            parent=window
-        )
-
+        messagebox.showinfo("Deleted", "Lead deleted successfully.", parent=window)
         dashboard()
 
-    # -------------------------
-    # BUTTONS
-    # -------------------------
-
     def crm_button(text, command):
-        tk.Button(
-            content,
-            text=text,
-            width=38,
-            height=2,
-            font=("Arial", 10, "bold"),
-            command=command
-        ).pack(pady=4)
+        tk.Button(content, text=text, width=38, height=2, font=("Arial", 10, "bold"), command=command).pack(pady=4)
 
     crm_button("ADD NEW LEAD", add_lead)
     crm_button("VIEW ALL LEADS", view_leads)
@@ -2440,44 +1969,18 @@ where your enquiries are coming from.
     crm_button("LEAD SOURCE REPORT", lead_source_report)
     crm_button("DELETE LEAD", delete_lead)
 
-    tk.Button(
-        content,
-        text="CLOSE",
-        width=38,
-        height=2,
-        command=window.destroy
-    ).pack(pady=12)
+    tk.Button(content, text="CLOSE", width=38, height=2, command=window.destroy).pack(pady=12)
 
-
-# =========================
-# BUSINESS DESCRIPTION
-# =========================
 
 def business_description():
-
     business = data.get("business_name", "")
-
     if not business:
-        messagebox.showwarning(
-            "Business Profile",
-            "First create Business Profile."
-        )
+        messagebox.showwarning("Business Profile", "First create Business Profile.")
         return
 
-    location = simpledialog.askstring(
-        "Business Description",
-        "Business Location:"
-    )
-
-    speciality = simpledialog.askstring(
-        "Business Description",
-        "Main Speciality:"
-    )
-
-    audience = simpledialog.askstring(
-        "Business Description",
-        "Target Audience:"
-    )
+    location = simpledialog.askstring("Business Description", "Business Location:")
+    speciality = simpledialog.askstring("Business Description", "Main Speciality:")
+    audience = simpledialog.askstring("Business Description", "Target Audience:")
 
     if not location or not speciality or not audience:
         return
@@ -2511,34 +2014,14 @@ def business_description():
     )
 
 
-# =========================
-# MARKETING CAMPAIGN
-# =========================
-
 def marketing_campaign():
-
-    campaign = simpledialog.askstring(
-        "Marketing Campaign",
-        "Campaign Name:"
-    )
-
+    campaign = simpledialog.askstring("Marketing Campaign", "Campaign Name:")
     if not campaign:
         return
 
-    objective = simpledialog.askstring(
-        "Marketing Campaign",
-        "Campaign Objective:"
-    )
-
-    audience = simpledialog.askstring(
-        "Marketing Campaign",
-        "Target Audience:"
-    )
-
-    budget = simpledialog.askstring(
-        "Marketing Campaign",
-        "Budget (optional):"
-    )
+    objective = simpledialog.askstring("Marketing Campaign", "Campaign Objective:")
+    audience = simpledialog.askstring("Marketing Campaign", "Target Audience:")
+    budget = simpledialog.askstring("Marketing Campaign", "Budget (optional):")
 
     campaign_data = {
         "name": campaign,
@@ -2586,23 +2069,14 @@ Campaign saved successfully.
     )
 
 
-# =========================
-# MARKETING REPORT
-# =========================
-
 def marketing_report():
-
     audit = data.get("audit", {})
     leads = data.get("leads", [])
     counts = lead_status_counts()
 
     total = len(leads)
     converted = counts["Converted"]
-
-    conversion_rate = (
-        converted / total * 100
-        if total else 0
-    )
+    conversion_rate = (converted / total * 100 if total else 0)
 
     text = f"""
 ========================================
@@ -2661,23 +2135,13 @@ NEXT STEPS
 
 ========================================
 """
-
     show(text)
 
 
-# =========================
-# EXPORT LEADS
-# =========================
-
 def export_leads():
-
     leads = data.get("leads", [])
-
     if not leads:
-        messagebox.showwarning(
-            "Export",
-            "No leads available to export."
-        )
+        messagebox.showwarning("Export", "No leads available to export.")
         return
 
     filename = filedialog.asksaveasfilename(
@@ -2685,7 +2149,6 @@ def export_leads():
         defaultextension=".csv",
         filetypes=[("CSV Files", "*.csv")]
     )
-
     if not filename:
         return
 
@@ -2703,49 +2166,20 @@ def export_leads():
     ]
 
     try:
-        with open(
-            filename,
-            "w",
-            newline="",
-            encoding="utf-8-sig"
-        ) as file:
-
-            writer = csv.DictWriter(
-                file,
-                fieldnames=fields
-            )
-
+        with open(filename, "w", newline="", encoding="utf-8-sig") as file:
+            writer = csv.DictWriter(file, fieldnames=fields)
             writer.writeheader()
-
             for lead in leads:
-                writer.writerow({
-                    field: lead.get(field, "")
-                    for field in fields
-                })
+                writer.writerow({field: lead.get(field, "") for field in fields})
 
-        messagebox.showinfo(
-            "Export Complete",
-            "Lead database exported successfully."
-        )
-
+        messagebox.showinfo("Export Complete", "Lead database exported successfully.")
     except Exception as e:
-        messagebox.showerror(
-            "Export Error",
-            str(e)
-        )
+        messagebox.showerror("Export Error", str(e))
 
-
-# =========================
-# BACKUP DATABASE
-# =========================
 
 def backup_database():
-
     if not os.path.exists(DATA_FILE):
-        messagebox.showwarning(
-            "Backup",
-            "Database file does not exist yet."
-        )
+        messagebox.showwarning("Backup", "Database file does not exist yet.")
         return
 
     filename = filedialog.asksaveasfilename(
@@ -2753,33 +2187,18 @@ def backup_database():
         defaultextension=".json",
         filetypes=[("JSON Files", "*.json")]
     )
-
     if not filename:
         return
 
     try:
         shutil.copy2(DATA_FILE, filename)
-
-        messagebox.showinfo(
-            "Backup Complete",
-            "Dhanda AI database backup created successfully."
-        )
-
+        messagebox.showinfo("Backup Complete", "Dhanda AI database backup created successfully.")
     except Exception as e:
-        messagebox.showerror(
-            "Backup Error",
-            str(e)
-        )
+        messagebox.showerror("Backup Error", str(e))
 
-
-# =========================
-# DATA SUMMARY
-# =========================
 
 def data_summary():
-
     leads = data.get("leads", [])
-
     text = f"""
 ========================================
            DHANDA AI DATA SUMMARY
@@ -2804,7 +2223,6 @@ Database is stored locally on this computer.
 
 ========================================
 """
-
     show(text)
 
 
@@ -2812,39 +2230,28 @@ Database is stored locally on this computer.
 # GUI LAYOUT
 # =========================
 
-title = tk.Label(
-    root,
-    text="DHANDA AI MARKETING",
-    font=("Arial", 24, "bold")
-)
+root = tk.Tk()
+root.title("DhandaSmart - Business Marketing & CRM")
+root.geometry("1150x720")
+root.minsize(850, 600)
+try:
+    if os.name == "nt":
+        root.state("zoomed")
+except Exception:
+    pass
+
+title = tk.Label(root, text="DHANDA AI MARKETING", font=("Arial", 24, "bold"))
 title.pack(pady=12)
 
-subtitle = tk.Label(
-    root,
-    text="Business Growth • Marketing • Lead CRM • PC + Mobile Ready",
-    font=("Arial", 10)
-)
+subtitle = tk.Label(root, text="Business Growth • Marketing • Lead CRM • PC + Mobile Ready", font=("Arial", 10))
 subtitle.pack(pady=(0, 8))
 
 main_frame = tk.Frame(root)
-main_frame.pack(
-    fill="both",
-    expand=True,
-    padx=15,
-    pady=8
-)
+main_frame.pack(fill="both", expand=True, padx=15, pady=8)
 
-
-# =========================
-# LEFT MENU
-# =========================
-
+# Left Menu
 menu_container = tk.Frame(main_frame)
-menu_container.pack(
-    side="left",
-    fill="y",
-    padx=(0, 15)
-)
+menu_container.pack(side="left", fill="y", padx=(0, 15))
 
 menu_canvas = tk.Canvas(menu_container, width=245, highlightthickness=0)
 menu_scrollbar = tk.Scrollbar(menu_container, orient="vertical", command=menu_canvas.yview)
@@ -2863,48 +2270,16 @@ menu_canvas.configure(yscrollcommand=menu_scrollbar.set)
 menu_canvas.pack(side="left", fill="y", expand=False)
 menu_scrollbar.pack(side="right", fill="y")
 
-
-# =========================
-# RIGHT OUTPUT
-# =========================
-
+# Right Output
 output_frame = tk.Frame(main_frame)
-output_frame.pack(
-    side="right",
-    fill="both",
-    expand=True
-)
+output_frame.pack(side="right", fill="both", expand=True)
 
-output = tk.Text(
-    output_frame,
-    font=("Consolas", 10),
-    wrap="word"
-)
+output = tk.Text(output_frame, font=("Consolas", 10), wrap="word")
+output.pack(side="left", fill="both", expand=True)
 
-output.pack(
-    side="left",
-    fill="both",
-    expand=True
-)
-
-scrollbar = tk.Scrollbar(
-    output_frame,
-    command=output.yview
-)
-
-scrollbar.pack(
-    side="right",
-    fill="y"
-)
-
-output.config(
-    yscrollcommand=scrollbar.set
-)
-
-
-# =========================
-# MENU BUTTONS
-# =========================
+scrollbar = tk.Scrollbar(output_frame, command=output.yview)
+scrollbar.pack(side="right", fill="y")
+output.config(yscrollcommand=scrollbar.set)
 
 buttons = [
     ("Dashboard", dashboard),
@@ -2928,32 +2303,12 @@ buttons = [
     ("Data Summary", data_summary)
 ]
 
-
 for text, command in buttons:
-
-    btn = tk.Button(
-        menu_frame,
-        text=text,
-        command=command,
-        width=25,
-        height=2,
-        font=("Arial", 9, "bold")
-    )
-
+    btn = tk.Button(menu_frame, text=text, command=command, width=25, height=2, font=("Arial", 9, "bold"))
     btn.pack(pady=3)
 
-
-exit_button = tk.Button(
-    menu_frame,
-    text="EXIT",
-    command=root.destroy,
-    width=25,
-    height=2,
-    font=("Arial", 10, "bold")
-)
-
+exit_button = tk.Button(menu_frame, text="EXIT", command=root.destroy, width=25, height=2, font=("Arial", 10, "bold"))
 exit_button.pack(pady=12)
-
 
 # =========================
 # START
