@@ -157,8 +157,8 @@ def run_online_demo():
 
     app = Flask(__name__)
     app.secret_key = os.environ.get("DHANDASMART_SECRET_KEY", "change-this-demo-secret")
-    demo_user = os.environ.get("DHANDASMART_DEMO_USER", "demo")
-    demo_password = os.environ.get("DHANDASMART_DEMO_PASSWORD", "demo123")
+    demo_user = "demo"
+    demo_password = "demo123"
     demo_data_file = os.environ.get("DHANDASMART_DATA_FILE", "demo_data.json")
 
     TRIAL_DAYS = 7
